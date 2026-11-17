@@ -1,763 +1,172 @@
+const STORAGE = { events: "eventify_events", guests: "eventify_guests", profile: "eventify_profile", theme: "eventify_theme" };
+const $ = (id) => document.getElementById(id);
+const read = (key, fallback) => { try { const value = JSON.parse(localStorage.getItem(key)); return value ?? fallback; } catch { return fallback; } };
+let events = read(STORAGE.events, []);
+let guests = read(STORAGE.guests, []);
+let profile = read(STORAGE.profile, { name: "Event Organizer", email: "" });
+let toastTimer;
 
-// =====================================
-// EVENTIFY - EVENT PLANNER
-// COMPLETE JAVASCRIPT
-// =====================================
+function makeId() { return (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`); }
+function persist() {
+  localStorage.setItem(STORAGE.events, JSON.stringify(events));
+  localStorage.setItem(STORAGE.guests, JSON.stringify(guests));
+  localStorage.setItem(STORAGE.profile, JSON.stringify(profile));
+}
+function escapeHTML(value = "") {
+  return String(value).replace(/[&<>"']/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[char]));
+}
+function showToast(message) {
+  const toast = $("toast"); toast.textContent = message; toast.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
+}
+function initials(name) { return (name || "EO").trim().split(/\s+/).slice(0,2).map(part => part[0]).join("").toUpperCase(); }
+function dateParts(date) {
+  if (!date) return { day: "—", month: "TBD" };
+  const d = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return { day: "—", month: "TBD" };
+  return { day: d.getDate(), month: d.toLocaleString("en", { month: "short" }) };
+}
+function formatDate(date) {
+  if (!date) return "Date not set";
+  const d = new Date(`${date}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? date : d.toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" });
+}
+function normalizeEvent(event) {
+  const status = ["Upcoming","Ongoing","Completed","Cancelled"].includes(event.status) ? event.status : (event.date && event.date < new Date().toISOString().slice(0,10) ? "Completed" : "Upcoming");
+  return { ...event, id: event.id || makeId(), category: event.category || "Other", status, guests: Number(event.guests) || 0, name: event.name || "Untitled event", location: event.location || "No location" };
+}
+events = Array.isArray(events) ? events.map(normalizeEvent) : [];
+guests = Array.isArray(guests) ? guests : [];
+persist();
 
+function eventCard(event, showActions = true) {
+  const date = dateParts(event.date);
+  const statusClass = event.status.toLowerCase();
+  return `<article class="event-row">
+    <div class="event-datebox"><strong>${escapeHTML(date.day)}</strong><span>${escapeHTML(date.month)}</span></div>
+    <div class="event-main"><h3>${escapeHTML(event.name)}</h3><div class="event-meta"><span>⌖ ${escapeHTML(event.location)}</span><span>♧ ${event.guests} guests</span><span>◷ ${escapeHTML(formatDate(event.date))}</span></div></div>
+    <div class="event-tags"><span class="category-tag">${escapeHTML(event.category)}</span><span class="status-badge ${statusClass}">${escapeHTML(event.status)}</span>${showActions ? `<div class="row-actions"><button class="small-action" data-edit-event="${escapeHTML(event.id)}">Edit</button><button class="small-action delete" data-delete-event="${escapeHTML(event.id)}">Delete</button></div>` : ""}</div>
+  </article>`;
+}
+function emptyState(title, message) { return `<div class="empty-state"><div class="empty-icon">✦</div><h3>${title}</h3><p>${message}</p></div>`; }
+function renderEvents() {
+  $("totalEvents").textContent = events.length;
+  $("upcomingEvents").textContent = events.filter(e => e.status === "Upcoming").length;
+  $("completedEvents").textContent = events.filter(e => e.status === "Completed").length;
+  $("totalGuests").textContent = guests.length;
+  const dashboardQuery = $("dashboardSearch").value.trim().toLowerCase();
+  const dashboardEvents = events.filter(e => ["Upcoming","Ongoing"].includes(e.status)).filter(e => [e.name,e.location,e.category,e.status].join(" ").toLowerCase().includes(dashboardQuery)).sort((a,b) => (a.date || "").localeCompare(b.date || ""));
+  $("dashboardEventList").innerHTML = dashboardEvents.length ? dashboardEvents.map(e => eventCard(e, true)).join("") : emptyState("Nothing on the calendar", "Create an event or try another search.");
+  const query = $("eventsSearch").value.trim().toLowerCase();
+  const filter = $("statusFilter").value;
+  const filtered = events.filter(e => [e.name,e.location,e.category,e.status].join(" ").toLowerCase().includes(query)).filter(e => filter === "all" || e.status === filter).sort((a,b) => (a.date || "").localeCompare(b.date || ""));
+  $("allEventList").innerHTML = filtered.length ? filtered.map(e => eventCard(e, true)).join("") : emptyState("No events found", "Try changing your search or create a new event.");
+  $("eventCountLabel").textContent = `${events.length} ${events.length === 1 ? "event" : "events"}`;
+}
+function renderGuests() {
+  $("guestCountLabel").textContent = `${guests.length} ${guests.length === 1 ? "guest" : "guests"}`;
+  const q = $("guestSearch").value.trim().toLowerCase();
+  const filtered = guests.filter(g => [g.name,g.email,eventName(g.eventId)].join(" ").toLowerCase().includes(q));
+  $("guestTableBody").innerHTML = filtered.map(g => `<tr><td><span class="guest-initial">${escapeHTML(initials(g.name))}</span>${escapeHTML(g.name)}</td><td>${escapeHTML(g.email || "—")}</td><td>${escapeHTML(eventName(g.eventId))}</td><td><button class="table-delete" data-delete-guest="${escapeHTML(g.id)}">Remove</button></td></tr>`).join("");
+  $("guestEmpty").classList.toggle("hidden", filtered.length > 0);
+  $("totalGuests").textContent = guests.length;
+}
+function eventName(id) { return events.find(e => e.id === id)?.name || (id ? "Event unavailable" : "Unassigned"); }
+function updateProfileUI() {
+  const name = profile.name || "Event Organizer";
+  $("sidebarOrganizer").textContent = name;
+  $("sidebarAvatar").textContent = initials(name);
+  $("topAvatar").textContent = initials(name);
+  $("organizerName").value = profile.name || "";
+  $("organizerEmail").value = profile.email || "";
+}
+function updateGuestEventOptions(selected = "") {
+  $("guestEvent").innerHTML = `<option value="">No event assigned</option>` + events.map(e => `<option value="${escapeHTML(e.id)}" ${e.id === selected ? "selected" : ""}>${escapeHTML(e.name)}</option>`).join("");
+}
+function openModal(id) { $(id).classList.add("show"); $(id).setAttribute("aria-hidden","false"); }
+function closeModal(id) { $(id).classList.remove("show"); $(id).setAttribute("aria-hidden","true"); }
+function openEventModal(id = "") {
+  $("eventForm").reset(); $("eventId").value = id;
+  const event = events.find(e => e.id === id);
+  $("eventModalTitle").textContent = event ? "Edit event" : "Create new event";
+  $("saveEventBtn").textContent = event ? "Save changes" : "Save event";
+  if (event) {
+    $("eventName").value = event.name; $("eventDate").value = event.date || "";
+    $("eventLocation").value = event.location; $("eventGuests").value = event.guests;
+    $("eventCategory").value = event.category; $("eventStatus").value = event.status;
+  } else { $("eventCategory").value = "Other"; $("eventStatus").value = "Upcoming"; }
+  openModal("eventModal");
+}
+function navigate(page) {
+  document.querySelectorAll(".page").forEach(el => el.classList.toggle("active", el.id === `page-${page}`));
+  document.querySelectorAll(".nav-link").forEach(el => el.classList.toggle("active", el.dataset.page === page));
+  const labels = { dashboard:"Dashboard", events:"My Events", guests:"Guests", settings:"Settings" };
+  $("pageCrumb").textContent = labels[page] || "Dashboard";
+  $("sidebar").classList.remove("open");
+  if (page === "guests") renderGuests();
+}
+function deleteEvent(id) {
+  const event = events.find(e => e.id === id); if (!event) return;
+  if (!confirm(`Delete "${event.name}"? Guests assigned to this event will become unassigned.`)) return;
+  events = events.filter(e => e.id !== id);
+  guests = guests.map(g => g.eventId === id ? { ...g, eventId: "" } : g);
+  persist(); renderEvents(); renderGuests(); showToast("Event deleted.");
+}
+function deleteGuest(id) {
+  const guest = guests.find(g => g.id === id); if (!guest) return;
+  if (!confirm(`Remove ${guest.name} from your guest list?`)) return;
+  guests = guests.filter(g => g.id !== id); persist(); renderGuests(); renderEvents(); showToast("Guest removed.");
+}
 
-// =====================================
-// ELEMENTS
-// =====================================
-
-const modal = document.getElementById("eventModal");
-const eventForm = document.getElementById("eventForm");
-
-const eventName = document.getElementById("eventName");
-const eventDate = document.getElementById("eventDate");
-const eventLocation = document.getElementById("eventLocation");
-const eventGuests = document.getElementById("eventGuests");
-const eventCategory = document.getElementById("eventCategory");
-const eventStatus = document.getElementById("eventStatus");
-
-const modalTitle = document.getElementById("modalTitle");
-const eventSubmit = document.getElementById("eventSubmit");
-
-const sidebarName = document.getElementById("sidebarName");
-
-
-// =====================================
-// LOCAL STORAGE DATA
-// =====================================
-
-let events = JSON.parse(localStorage.getItem("events")) || [];
-let guests = JSON.parse(localStorage.getItem("guests")) || [];
-
-// Add default category and status to events saved by older versions.
-events = events.map(function(event) {
-    const eventDate = new Date(event.date + "T00:00:00");
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    return {
-        ...event,
-        category: event.category || "Other",
-        status: event.status || (eventDate < today ? "Completed" : "Upcoming")
-    };
+document.querySelectorAll(".nav-link").forEach(button => button.addEventListener("click", () => navigate(button.dataset.page)));
+document.querySelectorAll("[data-go]").forEach(button => button.addEventListener("click", () => navigate(button.dataset.go)));
+$("createEventBtn").addEventListener("click", () => openEventModal());
+$("createEventBtn2").addEventListener("click", () => openEventModal());
+$("eventForm").addEventListener("submit", event => {
+  event.preventDefault();
+  const id = $("eventId").value;
+  const data = { name:$("eventName").value.trim(), date:$("eventDate").value, location:$("eventLocation").value.trim(), guests:Number($("eventGuests").value), category:$("eventCategory").value, status:$("eventStatus").value };
+  if (!data.name || !data.date || !data.location || data.guests < 0) return;
+  if (id) { events = events.map(e => e.id === id ? { ...e, ...data } : e); showToast("Event updated successfully."); }
+  else { events.push({ id:makeId(), ...data }); showToast("Event created successfully."); }
+  persist(); renderEvents(); updateGuestEventOptions(); closeModal("eventModal");
 });
-localStorage.setItem("events", JSON.stringify(events));
-
-let editingIndex = null;
-
-
-// =====================================
-// PAGE NAVIGATION
-// =====================================
-
-const pages = {
-    dashboard: document.getElementById("dashboardPage"),
-    events: document.getElementById("eventsPage"),
-    guests: document.getElementById("guestsPage"),
-    settings: document.getElementById("settingsPage")
-};
-
-const menus = document.querySelectorAll(".menu li[data-page]");
-
-function showPage(pageName) {
-
-    Object.keys(pages).forEach(function(key) {
-
-        pages[key].classList.toggle(
-            "active-page",
-            key === pageName
-        );
-
-    });
-
-    menus.forEach(function(menu) {
-
-        menu.classList.toggle(
-            "active",
-            menu.dataset.page === pageName
-        );
-
-    });
-
-    if (pageName === "dashboard" || pageName === "events") {
-        displayEvents();
-    }
-
-    if (pageName === "guests") {
-        displayGuests();
-        updateGuestEventOptions();
-    }
-
-}
-
-menus.forEach(function(menu) {
-
-    menu.addEventListener("click", function() {
-        showPage(menu.dataset.page);
-    });
-
+document.addEventListener("click", event => {
+  const edit = event.target.closest("[data-edit-event]");
+  const del = event.target.closest("[data-delete-event]");
+  const guestDel = event.target.closest("[data-delete-guest]");
+  if (edit) openEventModal(edit.dataset.editEvent);
+  if (del) deleteEvent(del.dataset.deleteEvent);
+  if (guestDel) deleteGuest(guestDel.dataset.deleteGuest);
 });
-
-document.getElementById("viewAllEvents").addEventListener(
-    "click",
-    function() {
-        showPage("events");
-    }
-);
-
-
-// =====================================
-// CREATE EVENT MODAL
-// =====================================
-
-function openModal() {
-
-    editingIndex = null;
-
-    eventForm.reset();
-    eventCategory.value = "Other";
-    eventStatus.value = "Upcoming";
-
-    modalTitle.textContent = "Create New Event";
-    eventSubmit.textContent = "Save Event";
-
-    modal.style.display = "flex";
-
-}
-
-document.getElementById("openCreateEvent")
-    .addEventListener("click", openModal);
-
-document.getElementById("openCreateEventMenu")
-    .addEventListener("click", openModal);
-
-document.getElementById("myEventsCreate")
-    .addEventListener("click", openModal);
-
-
-document.getElementById("closeModal")
-    .addEventListener("click", function() {
-
-        modal.style.display = "none";
-
-    });
-
-
-modal.addEventListener("click", function(e) {
-
-    if (e.target === modal) {
-        modal.style.display = "none";
-    }
-
+$("dashboardSearch").addEventListener("input", renderEvents);
+$("eventsSearch").addEventListener("input", renderEvents);
+$("statusFilter").addEventListener("change", renderEvents);
+$("addGuestBtn").addEventListener("click", () => { $("guestForm").reset(); updateGuestEventOptions(); openModal("guestModal"); });
+$("guestForm").addEventListener("submit", event => {
+  event.preventDefault();
+  const name = $("guestName").value.trim();
+  if (!name) return;
+  guests.push({ id:makeId(), name, email:$("guestEmail").value.trim(), eventId:$("guestEvent").value });
+  persist(); renderGuests(); renderEvents(); closeModal("guestModal"); showToast("Guest added successfully.");
 });
-
-
-// =====================================
-// SAVE EVENTS
-// =====================================
-
-function saveEvents() {
-
-    localStorage.setItem(
-        "events",
-        JSON.stringify(events)
-    );
-
-    displayEvents();
-    updateGuestEventOptions();
-
-}
-
-
-// =====================================
-// DISPLAY EVENTS
-// =====================================
-
-function displayEvents() {
-
-    const eventList = document.getElementById("eventList");
-    const allEventsList = document.getElementById("allEventsList");
-
-    eventList.innerHTML = "";
-    allEventsList.innerHTML = "";
-
-    let upcoming = 0;
-    let completed = 0;
-    let totalGuests = 0;
-
-    const dashboardSearch =
-        document.getElementById("dashboardSearch").value.toLowerCase();
-
-    const eventsSearch =
-        document.getElementById("eventsSearch").value.toLowerCase();
-
-
-    events.forEach(function(event, index) {
-
-        const date = new Date(event.date + "T00:00:00");
-        const statusValue = event.status || "Upcoming";
-
-        if (statusValue === "Upcoming") upcoming++;
-        if (statusValue === "Completed") completed++;
-
-        totalGuests += Number(event.guests);
-
-        const formattedDate = date.toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric"
-        });
-
-
-        // CREATE EVENT CARD
-        function createCard() {
-
-            const card = document.createElement("div");
-            card.className = "event-card";
-
-            const details = document.createElement("div");
-
-            const name = document.createElement("h3");
-            name.textContent = event.name;
-
-            const eventDateText = document.createElement("p");
-            eventDateText.innerHTML =
-                '<i class="fa-solid fa-calendar"></i> ';
-            eventDateText.append(formattedDate);
-
-            const location = document.createElement("p");
-            location.innerHTML =
-                '<i class="fa-solid fa-location-dot"></i> ';
-            location.append(event.location);
-
-            const guestsText = document.createElement("p");
-            guestsText.innerHTML =
-                '<i class="fa-solid fa-users"></i> ';
-            guestsText.append(event.guests + " Guests");
-
-            const meta = document.createElement("div");
-            meta.className = "event-meta";
-
-            const categoryTag = document.createElement("span");
-            categoryTag.className = "category-tag";
-            categoryTag.textContent = event.category || "Other";
-
-            const status = document.createElement("span");
-            const safeStatus = (event.status || "Upcoming").toLowerCase();
-            status.className = "status status-" + safeStatus;
-            status.textContent = event.status || "Upcoming";
-
-            meta.append(categoryTag, status);
-
-            details.append(
-                name,
-                eventDateText,
-                location,
-                guestsText,
-                meta
-            );
-
-
-            // ACTION BUTTONS
-            const actions = document.createElement("div");
-            actions.className = "event-actions";
-
-
-            const editButton = document.createElement("button");
-
-            editButton.className = "edit-btn";
-            editButton.textContent = "Edit";
-
-            editButton.addEventListener("click", function() {
-                editEvent(index);
-            });
-
-
-            const deleteButton = document.createElement("button");
-
-            deleteButton.className = "delete-btn";
-            deleteButton.textContent = "Delete";
-
-            deleteButton.addEventListener("click", function() {
-                deleteEvent(index);
-            });
-
-
-            actions.append(
-                status,
-                editButton,
-                deleteButton
-            );
-
-            card.append(details, actions);
-
-            return card;
-
-        }
-
-
-        // DASHBOARD: UPCOMING EVENTS ONLY
-        if (event.status === "Upcoming" || event.status === "Ongoing") {
-
-            const matchesDashboardSearch =
-                event.name.toLowerCase().includes(dashboardSearch) ||
-                event.location.toLowerCase().includes(dashboardSearch) ||
-                (event.category || "Other").toLowerCase().includes(dashboardSearch) ||
-                (event.status || "Upcoming").toLowerCase().includes(dashboardSearch);
-
-            if (matchesDashboardSearch) {
-                eventList.appendChild(createCard());
-            }
-
-        }
-
-
-        // MY EVENTS: ALL EVENTS
-        const matchesEventsSearch =
-            event.name.toLowerCase().includes(eventsSearch) ||
-            event.location.toLowerCase().includes(eventsSearch) ||
-            (event.category || "Other").toLowerCase().includes(eventsSearch) ||
-            (event.status || "Upcoming").toLowerCase().includes(eventsSearch);
-
-        if (matchesEventsSearch) {
-            allEventsList.appendChild(createCard());
-        }
-
-    });
-
-
-    // EMPTY MESSAGES
-    if (eventList.children.length === 0) {
-
-        eventList.innerHTML =
-            '<p class="empty-message">No matching upcoming events.</p>';
-
-    }
-
-    if (allEventsList.children.length === 0) {
-
-        allEventsList.innerHTML =
-            '<p class="empty-message">No matching events found.</p>';
-
-    }
-
-
-    // UPDATE DASHBOARD STATISTICS
-    document.getElementById("totalEvents").textContent =
-        events.length;
-
-    document.getElementById("upcomingEvents").textContent =
-        upcoming;
-
-    document.getElementById("totalGuests").textContent =
-        totalGuests;
-
-    document.getElementById("completedEvents").textContent =
-        completed;
-
-}
-
-
-// =====================================
-// EDIT EVENT
-// =====================================
-
-function editEvent(index) {
-
-    const event = events[index];
-
-    editingIndex = index;
-
-    eventName.value = event.name;
-    eventDate.value = event.date;
-    eventLocation.value = event.location;
-    eventGuests.value = event.guests;
-    eventCategory.value = event.category || "Other";
-    eventStatus.value = event.status || "Upcoming";
-
-    modalTitle.textContent = "Edit Event";
-    eventSubmit.textContent = "Update Event";
-
-    modal.style.display = "flex";
-
-}
-
-
-// =====================================
-// DELETE EVENT
-// =====================================
-
-function deleteEvent(index) {
-
-    if (confirm("Are you sure you want to delete this event?")) {
-
-        const deletedEvent = events[index].name;
-
-        events.splice(index, 1);
-
-        // Remove guests assigned to deleted event
-        guests = guests.filter(function(guest) {
-            return guest.event !== deletedEvent;
-        });
-
-        saveEvents();
-
-        saveGuests();
-
-        alert("Event deleted successfully!");
-
-    }
-
-}
-
-
-// =====================================
-// CREATE OR UPDATE EVENT
-// =====================================
-
-eventForm.addEventListener("submit", function(e) {
-
-    e.preventDefault();
-
-    const newEvent = {
-
-        name: eventName.value.trim(),
-        date: eventDate.value,
-        location: eventLocation.value.trim(),
-        guests: Number(eventGuests.value),
-        category: eventCategory.value,
-        status: eventStatus.value
-
-    };
-
-
-    if (editingIndex === null) {
-
-        events.push(newEvent);
-
-        alert("Event created successfully!");
-
-    } else {
-
-        const oldName = events[editingIndex].name;
-
-        events[editingIndex] = newEvent;
-
-        // Update guest event assignments if event name changes
-        guests.forEach(function(guest) {
-
-            if (guest.event === oldName) {
-                guest.event = newEvent.name;
-            }
-
-        });
-
-        saveGuests();
-
-        alert("Event updated successfully!");
-
-    }
-
-
-    saveEvents();
-
-    eventForm.reset();
-
-    modal.style.display = "none";
-
-    editingIndex = null;
-
+$("guestSearch").addEventListener("input", renderGuests);
+document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => closeModal(button.dataset.close)));
+document.querySelectorAll(".modal-backdrop").forEach(backdrop => backdrop.addEventListener("click", event => { if (event.target === backdrop) closeModal(backdrop.id); }));
+document.addEventListener("keydown", event => { if (event.key === "Escape") document.querySelectorAll(".modal-backdrop.show").forEach(modal => closeModal(modal.id)); });
+$("profileForm").addEventListener("submit", event => {
+  event.preventDefault(); profile = { name:$("organizerName").value.trim() || "Event Organizer", email:$("organizerEmail").value.trim() };
+  persist(); updateProfileUI(); showToast("Profile saved.");
 });
-
-
-// =====================================
-// EVENT SEARCH
-// =====================================
-
-document.getElementById("dashboardSearch")
-    .addEventListener("input", displayEvents);
-
-document.getElementById("eventsSearch")
-    .addEventListener("input", displayEvents);
-
-
-// =====================================
-// GUEST MANAGEMENT
-// =====================================
-
-const guestForm = document.getElementById("guestForm");
-
-const guestName = document.getElementById("guestName");
-const guestEmail = document.getElementById("guestEmail");
-const guestEvent = document.getElementById("guestEvent");
-
-const guestList = document.getElementById("guestList");
-
-
-// SAVE GUESTS
-function saveGuests() {
-
-    localStorage.setItem(
-        "guests",
-        JSON.stringify(guests)
-    );
-
-    displayGuests();
-
+function applyTheme(dark) {
+  document.body.classList.toggle("light-mode", !dark);
+  $("darkModeToggle").checked = dark;
+  localStorage.setItem(STORAGE.theme, dark ? "dark" : "light");
 }
-
-
-// UPDATE EVENT DROPDOWN
-function updateGuestEventOptions() {
-
-    const selectedValue = guestEvent.value;
-
-    guestEvent.innerHTML =
-        '<option value="">Select an event</option>';
-
-    events.forEach(function(event) {
-
-        const option = document.createElement("option");
-
-        option.value = event.name;
-        option.textContent = event.name;
-
-        guestEvent.appendChild(option);
-
-    });
-
-    if (events.some(function(event) {
-        return event.name === selectedValue;
-    })) {
-
-        guestEvent.value = selectedValue;
-
-    }
-
-}
-
-
-// DISPLAY GUESTS
-function displayGuests() {
-
-    guestList.innerHTML = "";
-
-    const search = document.getElementById("guestSearch")
-        .value.toLowerCase();
-
-    const filteredGuests = guests
-        .map(function(guest, index) {
-            return { ...guest, originalIndex: index };
-        })
-        .filter(function(guest) {
-
-            return guest.name.toLowerCase().includes(search) ||
-                guest.email.toLowerCase().includes(search) ||
-                guest.event.toLowerCase().includes(search);
-
-        });
-
-
-    if (filteredGuests.length === 0) {
-
-        guestList.innerHTML =
-            '<p class="empty-message">No matching guests found.</p>';
-
-        return;
-
-    }
-
-
-    filteredGuests.forEach(function(guest) {
-
-        const card = document.createElement("div");
-
-        card.className = "event-card";
-
-        const details = document.createElement("div");
-
-        const name = document.createElement("h3");
-        name.textContent = guest.name;
-
-        const email = document.createElement("p");
-        email.textContent = "Email: " + guest.email;
-
-        const event = document.createElement("p");
-        event.textContent = "Event: " + guest.event;
-
-        details.append(name, email, event);
-
-
-        const deleteButton = document.createElement("button");
-
-        deleteButton.className = "delete-btn";
-        deleteButton.textContent = "Remove";
-
-        deleteButton.addEventListener("click", function() {
-
-            if (confirm("Are you sure you want to remove this guest?")) {
-
-                guests.splice(guest.originalIndex, 1);
-
-                saveGuests();
-                displayEvents();
-
-            }
-
-        });
-
-
-        card.append(details, deleteButton);
-
-        guestList.appendChild(card);
-
-    });
-
-}
-
-
-// ADD GUEST
-guestForm.addEventListener("submit", function(e) {
-
-    e.preventDefault();
-
-    const selectedEvent = guestEvent.value;
-
-    if (!events.some(function(event) {
-        return event.name === selectedEvent;
-    })) {
-
-        alert("Please select a valid event first.");
-        return;
-
-    }
-
-
-    const newGuest = {
-
-        name: guestName.value.trim(),
-        email: guestEmail.value.trim(),
-        event: selectedEvent
-
-    };
-
-
-    guests.push(newGuest);
-
-    saveGuests();
-
-    guestForm.reset();
-
-    updateGuestEventOptions();
-
-    displayGuests();
-
-    displayEvents();
-
-    alert("Guest added successfully!");
-
-});
-
-
-// GUEST SEARCH
-document.getElementById("guestSearch")
-    .addEventListener("input", displayGuests);
-
-
-// =====================================
-// SETTINGS
-// =====================================
-
-const settingsForm = document.getElementById("settingsForm");
-
-const organizerName =
-    document.getElementById("organizerName");
-
-const organizerEmail =
-    document.getElementById("organizerEmail");
-
-const darkMode =
-    document.getElementById("darkMode");
-
-
-// LOAD SETTINGS
-organizerName.value =
-    localStorage.getItem("organizerName") || "Event Organizer";
-
-organizerEmail.value =
-    localStorage.getItem("organizerEmail") || "";
-
-darkMode.checked =
-    localStorage.getItem("darkMode") === "true";
-
-
-// UPDATE SIDEBAR PROFILE
-function updateProfile() {
-
-    sidebarName.textContent =
-        organizerName.value || "Event Organizer";
-
-}
-
-updateProfile();
-
-
-// SAVE SETTINGS
-settingsForm.addEventListener("submit", function(e) {
-
-    e.preventDefault();
-
-    localStorage.setItem(
-        "organizerName",
-        organizerName.value.trim()
-    );
-
-    localStorage.setItem(
-        "organizerEmail",
-        organizerEmail.value.trim()
-    );
-
-    updateProfile();
-
-    alert("Settings saved successfully!");
-
-});
-
-
-// =====================================
-// DARK MODE
-// =====================================
-
-function applyDarkMode() {
-
-    document.body.classList.toggle(
-        "dark-mode",
-        darkMode.checked
-    );
-
-    localStorage.setItem(
-        "darkMode",
-        darkMode.checked
-    );
-
-}
-
-darkMode.addEventListener("change", applyDarkMode);
-
-applyDarkMode();
-
-
-// =====================================
-// INITIALIZE WEBSITE
-// =====================================
-
-updateGuestEventOptions();
-
-displayEvents();
-
-displayGuests();
-
-showPage("dashboard");
+$("darkModeToggle").addEventListener("change", event => { applyTheme(event.target.checked); showToast(event.target.checked ? "Dark mode enabled." : "Light mode enabled."); });
+$("mobileMenu").addEventListener("click", () => $("sidebar").classList.toggle("open"));
+$("sidebarSettings").addEventListener("click", () => navigate("settings"));
+$("topAvatar").addEventListener("click", () => navigate("settings"));
+$("todayLabel").textContent = new Date().toLocaleDateString("en", { weekday:"short", month:"short", day:"numeric" });
+$("year").textContent = new Date().getFullYear();
+updateProfileUI(); applyTheme(read(STORAGE.theme, "dark") !== "light"); renderEvents(); renderGuests();

@@ -1,345 +1,180 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eventify - Event Planner</title>
-
-    <link rel="stylesheet" href="style.css">
-
-    <link rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1020">
+  <title>Eventify — Event Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#" aria-label="Eventify home">
+        <span class="brand-mark">E</span>
+        <span>eventify<span class="brand-dot">.</span></span>
+      </a>
 
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
+      <div class="workspace-label">WORKSPACE</div>
+      <nav class="main-nav" aria-label="Main navigation">
+        <button class="nav-link active" data-page="dashboard"><span class="nav-icon">▦</span> Dashboard</button>
+        <button class="nav-link" data-page="events"><span class="nav-icon">▣</span> My Events</button>
+        <button class="nav-link" data-page="guests"><span class="nav-icon">♧</span> Guests</button>
+        <button class="nav-link" data-page="settings"><span class="nav-icon">⚙</span> Settings</button>
+      </nav>
 
-        <div class="logo">
-            <i class="fa-solid fa-calendar-check"></i>
-            <h2>Eventify</h2>
+      <div class="sidebar-bottom">
+        <div class="organizer-avatar" id="sidebarAvatar">EO</div>
+        <div class="organizer-meta">
+          <strong id="sidebarOrganizer">Event Organizer</strong>
+          <span>Workspace admin</span>
         </div>
-
-        <ul class="menu">
-            <li class="active" data-page="dashboard">
-                <i class="fa-solid fa-house"></i>
-                <span>Dashboard</span>
-            </li>
-
-            <li data-page="events">
-                <i class="fa-solid fa-calendar-days"></i>
-                <span>My Events</span>
-            </li>
-
-            <li id="openCreateEventMenu">
-                <i class="fa-solid fa-plus"></i>
-                <span>Create Event</span>
-            </li>
-
-            <li data-page="guests">
-                <i class="fa-solid fa-users"></i>
-                <span>Guests</span>
-            </li>
-
-            <li data-page="settings">
-                <i class="fa-solid fa-gear"></i>
-                <span>Settings</span>
-            </li>
-        </ul>
-
-        <div class="sidebar-bottom">
-            <i class="fa-solid fa-circle-user"></i>
-            <div>
-                <h4 id="sidebarName">Event Organizer</h4>
-                <p>Administrator</p>
-            </div>
-        </div>
-
+        <button class="icon-button sidebar-menu" id="sidebarSettings" aria-label="Open settings">•••</button>
+      </div>
     </aside>
 
-
-    <!-- MAIN CONTENT -->
-
-    <main class="main-content">
-
-        <!-- DASHBOARD PAGE -->
-        <section class="page active-page" id="dashboardPage">
-
-            <header class="topbar">
-                <div>
-                    <h1>Dashboard</h1>
-                    <p>Welcome back! Here's your event overview.</p>
-                </div>
-
-                <button class="create-btn" id="openCreateEvent">
-                    <i class="fa-solid fa-plus"></i>
-                    Create Event
-                </button>
-            </header>
-
-            <!-- STATISTICS -->
-            <section class="stats-container">
-
-                <div class="stat-card">
-                    <i class="fa-solid fa-calendar-check"></i>
-                    <h3>Total Events</h3>
-                    <h2 id="totalEvents">0</h2>
-                </div>
-
-                <div class="stat-card">
-                    <i class="fa-solid fa-clock"></i>
-                    <h3>Upcoming Events</h3>
-                    <h2 id="upcomingEvents">0</h2>
-                </div>
-
-                <div class="stat-card">
-                    <i class="fa-solid fa-users"></i>
-                    <h3>Total Guests</h3>
-                    <h2 id="totalGuests">0</h2>
-                </div>
-
-                <div class="stat-card">
-                    <i class="fa-solid fa-check-circle"></i>
-                    <h3>Completed Events</h3>
-                    <h2 id="completedEvents">0</h2>
-                </div>
-
-            </section>
-
-            <!-- UPCOMING EVENTS -->
-            <section class="events-section">
-
-                <div class="section-header">
-                    <h2>Upcoming Events</h2>
-                    <button class="view-btn" id="viewAllEvents">
-                        View All
-                    </button>
-                </div>
-
-                <input type="text" id="dashboardSearch"
-                    class="search-input"
-                    placeholder="Search upcoming events...">
-
-                <div id="eventList">
-                    <p class="empty-message">
-                        No upcoming events. Create your first event!
-                    </p>
-                </div>
-
-            </section>
-
-        </section>
-
-
-        <!-- MY EVENTS PAGE -->
-        <section class="page" id="eventsPage">
-
-            <header class="topbar">
-                <div>
-                    <h1>My Events</h1>
-                    <p>Manage and organize all your events.</p>
-                </div>
-
-                <button class="create-btn" id="myEventsCreate">
-                    <i class="fa-solid fa-plus"></i>
-                    Create Event
-                </button>
-            </header>
-
-            <section class="events-section">
-
-                <div class="section-header">
-                    <h2>All Events</h2>
-                </div>
-
-                <input type="text" id="eventsSearch"
-                    class="search-input"
-                    placeholder="Search events...">
-
-                <div id="allEventsList">
-                    <p class="empty-message">No events created yet.</p>
-                </div>
-
-            </section>
-
-        </section>
-
-
-        <!-- GUEST MANAGEMENT PAGE -->
-        <section class="page" id="guestsPage">
-
-            <header class="topbar">
-                <div>
-                    <h1>Guest Management</h1>
-                    <p>Add and manage your event guests.</p>
-                </div>
-            </header>
-
-            <section class="events-section">
-
-                <div class="section-header">
-                    <h2>Add New Guest</h2>
-                </div>
-
-                <form id="guestForm">
-
-                    <label for="guestName">Guest Name</label>
-                    <input type="text" id="guestName"
-                        placeholder="Enter guest name" required>
-
-                    <label for="guestEmail">Email Address</label>
-                    <input type="email" id="guestEmail"
-                        placeholder="Enter email address" required>
-
-                    <label for="guestEvent">Event Name</label>
-                    <select id="guestEvent" required>
-                        <option value="">Select an event</option>
-                    </select>
-
-                    <button type="submit" class="save-btn">
-                        <i class="fa-solid fa-user-plus"></i>
-                        Add Guest
-                    </button>
-
-                </form>
-
-            </section>
-
-            <section class="events-section guest-section">
-
-                <div class="section-header">
-                    <h2>Guest List</h2>
-                </div>
-
-                <input type="text" id="guestSearch"
-                    class="search-input"
-                    placeholder="Search guests...">
-
-                <div id="guestList">
-                    <p class="empty-message">No guests added yet.</p>
-                </div>
-
-            </section>
-
-        </section>
-
-
-        <!-- SETTINGS PAGE -->
-        <section class="page" id="settingsPage">
-
-            <header class="topbar">
-                <div>
-                    <h1>Settings</h1>
-                    <p>Manage your account and preferences.</p>
-                </div>
-            </header>
-
-            <section class="events-section">
-
-                <div class="section-header">
-                    <h2>Organizer Profile</h2>
-                </div>
-
-                <form id="settingsForm">
-
-                    <label for="organizerName">Organizer Name</label>
-                    <input type="text" id="organizerName"
-                        placeholder="Enter organizer name" required>
-
-                    <label for="organizerEmail">Email Address</label>
-                    <input type="email" id="organizerEmail"
-                        placeholder="Enter email address" required>
-
-                    <button type="submit" class="save-btn">
-                        <i class="fa-solid fa-floppy-disk"></i>
-                        Save Settings
-                    </button>
-
-                </form>
-
-            </section>
-
-            <section class="events-section appearance-section">
-
-                <div class="section-header">
-                    <h2>Appearance</h2>
-                </div>
-
-                <label class="toggle-label">
-                    <input type="checkbox" id="darkMode">
-                    Enable Dark Mode
-                </label>
-
-            </section>
-
-        </section>
-
-    </main>
-
-
-    <!-- CREATE / EDIT EVENT MODAL -->
-    <div class="modal" id="eventModal">
-
-        <div class="modal-content">
-
-            <div class="modal-header">
-                <h2 id="modalTitle">Create New Event</h2>
-
-                <button type="button" id="closeModal">
-                    &times;
-                </button>
-            </div>
-
-            <form id="eventForm">
-
-                <label for="eventName">Event Name</label>
-                <input type="text" id="eventName"
-                    placeholder="Enter event name" required>
-
-                <label for="eventDate">Event Date</label>
-                <input type="date" id="eventDate" required>
-
-                <label for="eventLocation">Event Location</label>
-                <input type="text" id="eventLocation"
-                    placeholder="Enter event location" required>
-
-                <label for="eventGuests">Number of Guests</label>
-                <input type="number" id="eventGuests"
-                    placeholder="Enter number of guests"
-                    min="0" required>
-
-                <label for="eventCategory">Event Category</label>
-                <select id="eventCategory" required>
-                    <option value="Birthday">Birthday</option>
-                    <option value="Wedding">Wedding</option>
-                    <option value="Conference">Conference</option>
-                    <option value="Seminar">Seminar</option>
-                    <option value="Meeting">Meeting</option>
-                    <option value="Other" selected>Other</option>
-                </select>
-
-                <label for="eventStatus">Event Status</label>
-                <select id="eventStatus" required>
-                    <option value="Upcoming" selected>Upcoming</option>
-                    <option value="Ongoing">Ongoing</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Cancelled">Cancelled</option>
-                </select>
-
-                <button type="submit" class="save-btn" id="eventSubmit">
-                    Save Event
-                </button>
-
-            </form>
-
+    <main class="main-area">
+      <header class="topbar">
+        <button class="mobile-menu icon-button" id="mobileMenu" aria-label="Open navigation">☰</button>
+        <div class="breadcrumb"><span>Workspace</span><span class="crumb-slash">/</span><strong id="pageCrumb">Dashboard</strong></div>
+        <div class="topbar-actions">
+          <div class="date-chip"><span class="status-dot"></span><span id="todayLabel">Today</span></div>
+          <button class="avatar-button" id="topAvatar" aria-label="Open settings">EO</button>
         </div>
+      </header>
 
+      <div class="content">
+        <section class="page active" id="page-dashboard">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">OVERVIEW</p>
+              <h1>Good things are <span class="gradient-text">happening.</span></h1>
+              <p class="subheading">Here's what's going on with your events.</p>
+            </div>
+            <button class="primary-button" id="createEventBtn"><span>＋</span> Create event</button>
+          </div>
+
+          <div class="stats-grid">
+            <article class="stat-card">
+              <div class="stat-top"><span>Total events</span><span class="stat-icon purple">▦</span></div>
+              <div class="stat-value" id="totalEvents">0</div>
+              <div class="stat-foot">All events in your workspace</div>
+            </article>
+            <article class="stat-card">
+              <div class="stat-top"><span>Upcoming</span><span class="stat-icon blue">◷</span></div>
+              <div class="stat-value" id="upcomingEvents">0</div>
+              <div class="stat-foot">Ready and coming up</div>
+            </article>
+            <article class="stat-card">
+              <div class="stat-top"><span>Total guests</span><span class="stat-icon pink">♧</span></div>
+              <div class="stat-value" id="totalGuests">0</div>
+              <div class="stat-foot">Across all your events</div>
+            </article>
+            <article class="stat-card">
+              <div class="stat-top"><span>Completed</span><span class="stat-icon green">✓</span></div>
+              <div class="stat-value" id="completedEvents">0</div>
+              <div class="stat-foot">Events wrapped up</div>
+            </article>
+          </div>
+
+          <section class="panel events-panel">
+            <div class="panel-heading">
+              <div><p class="eyebrow">YOUR SCHEDULE</p><h2>Upcoming events</h2></div>
+              <button class="text-button" data-go="events">View all <span>→</span></button>
+            </div>
+            <div class="toolbar">
+              <label class="search-box"><span>⌕</span><input id="dashboardSearch" type="search" placeholder="Search your events..."></label>
+              <button class="secondary-button" data-go="events">All events</button>
+            </div>
+            <div id="dashboardEventList" class="event-list"></div>
+          </section>
+        </section>
+
+        <section class="page" id="page-events">
+          <div class="page-heading">
+            <div><p class="eyebrow">YOUR WORKSPACE</p><h1>My <span class="gradient-text">events.</span></h1><p class="subheading">Keep every plan in one place.</p></div>
+            <button class="primary-button" id="createEventBtn2"><span>＋</span> Create event</button>
+          </div>
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">EVENT LIBRARY</p><h2>All events</h2></div><span class="muted-count" id="eventCountLabel">0 events</span></div>
+            <div class="toolbar">
+              <label class="search-box"><span>⌕</span><input id="eventsSearch" type="search" placeholder="Search by name, location, category..."></label>
+              <select class="filter-select" id="statusFilter" aria-label="Filter by status">
+                <option value="all">All statuses</option><option>Upcoming</option><option>Ongoing</option><option>Completed</option><option>Cancelled</option>
+              </select>
+            </div>
+            <div id="allEventList" class="event-list"></div>
+          </section>
+        </section>
+
+        <section class="page" id="page-guests">
+          <div class="page-heading">
+            <div><p class="eyebrow">PEOPLE</p><h1>Your <span class="gradient-text">guests.</span></h1><p class="subheading">Manage the people who make every event special.</p></div>
+            <button class="primary-button" id="addGuestBtn"><span>＋</span> Add guest</button>
+          </div>
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">GUEST DIRECTORY</p><h2>Guest list</h2></div><span class="muted-count" id="guestCountLabel">0 guests</span></div>
+            <div class="toolbar"><label class="search-box"><span>⌕</span><input id="guestSearch" type="search" placeholder="Search guests..."></label></div>
+            <div class="table-wrap">
+              <table><thead><tr><th>GUEST</th><th>EMAIL</th><th>EVENT</th><th></th></tr></thead><tbody id="guestTableBody"></tbody></table>
+            </div>
+            <div id="guestEmpty" class="empty-state hidden"><div class="empty-icon">♧</div><h3>No guests yet</h3><p>Add your first guest to get started.</p></div>
+          </section>
+        </section>
+
+        <section class="page" id="page-settings">
+          <div class="page-heading"><div><p class="eyebrow">PREFERENCES</p><h1>App <span class="gradient-text">settings.</span></h1><p class="subheading">Make Eventify feel like yours.</p></div></div>
+          <section class="panel settings-panel">
+            <div class="settings-section"><div><p class="eyebrow">PROFILE</p><h2>Organizer profile</h2><p class="setting-description">This name appears in your workspace.</p></div>
+              <form id="profileForm" class="profile-form">
+                <label>Organizer name<input id="organizerName" type="text" maxlength="50" placeholder="Your name" required></label>
+                <label>Email address<input id="organizerEmail" type="email" placeholder="you@example.com"></label>
+                <button class="primary-button" type="submit">Save profile</button>
+              </form>
+            </div>
+            <div class="settings-divider"></div>
+            <div class="settings-section theme-setting"><div><p class="eyebrow">APPEARANCE</p><h2>Dark appearance</h2><p class="setting-description">A focused, low-glare look for your workspace.</p></div><label class="switch"><input type="checkbox" id="darkModeToggle" checked><span class="switch-track"></span><span class="switch-label">Dark mode</span></label></div>
+          </section>
+        </section>
+      </div>
+      <footer class="footer"><span>© <span id="year"></span> Eventify</span><span>Made for memorable moments <span class="footer-heart">♥</span></span></footer>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="eventModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="eventModalTitle">
+      <div class="modal-header"><div><p class="eyebrow">MAKE IT HAPPEN</p><h2 id="eventModalTitle">Create new event</h2></div><button class="icon-button close-modal" data-close="eventModal" aria-label="Close">×</button></div>
+      <form id="eventForm">
+        <input type="hidden" id="eventId">
+        <div class="form-grid">
+          <label class="full-width">Event name<input id="eventName" type="text" placeholder="e.g. Annual team celebration" maxlength="80" required></label>
+          <label>Event date<input id="eventDate" type="date" required></label>
+          <label>Number of guests<input id="eventGuests" type="number" min="0" max="100000" placeholder="e.g. 50" required></label>
+          <label class="full-width">Location<input id="eventLocation" type="text" placeholder="Where will it happen?" maxlength="100" required></label>
+          <label>Category<select id="eventCategory"><option>Birthday</option><option>Wedding</option><option>Conference</option><option>Seminar</option><option>Meeting</option><option>Other</option></select></label>
+          <label>Status<select id="eventStatus"><option>Upcoming</option><option>Ongoing</option><option>Completed</option><option>Cancelled</option></select></label>
+        </div>
+        <div class="modal-actions"><button type="button" class="secondary-button" data-close="eventModal">Cancel</button><button type="submit" class="primary-button" id="saveEventBtn">Save event</button></div>
+      </form>
     </div>
+  </div>
 
+  <div class="modal-backdrop" id="guestModal" aria-hidden="true">
+    <div class="modal-card small-modal" role="dialog" aria-modal="true" aria-labelledby="guestModalTitle">
+      <div class="modal-header"><div><p class="eyebrow">GUEST DIRECTORY</p><h2 id="guestModalTitle">Add a guest</h2></div><button class="icon-button close-modal" data-close="guestModal" aria-label="Close">×</button></div>
+      <form id="guestForm">
+        <label>Guest name<input id="guestName" type="text" maxlength="70" placeholder="Full name" required></label>
+        <label>Email address<input id="guestEmail" type="email" maxlength="100" placeholder="guest@example.com"></label>
+        <label>Event<select id="guestEvent"><option value="">No event assigned</option></select></label>
+        <div class="modal-actions"><button type="button" class="secondary-button" data-close="guestModal">Cancel</button><button type="submit" class="primary-button">Add guest</button></div>
+      </form>
+    </div>
+  </div>
 
-    <!-- JAVASCRIPT -->
-    <script src="script.js"></script>
-
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="script.js"></script>
 </body>
 </html>
